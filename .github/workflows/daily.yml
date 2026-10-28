@@ -1,0 +1,60 @@
+
+name: Daily Coding Log
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  daily-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update coding log
+        run: |
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import random
+
+          today = datetime.now(timezone.utc).date().isoformat()
+          path = Path("daily-log.txt")
+
+          lines = path.read_text().splitlines() if path.exists() else []
+          today_lines = [line for line in lines if line.startswith(today)]
+
+          if not today_lines:
+              target = random.randint(1, 5)
+          else:
+              target = int(today_lines[0].split("|")[1])
+
+          if len(today_lines) >= target:
+              print("Today's update target is complete.")
+              raise SystemExit(0)
+
+          entry = (
+              f"{today}|{target}|Update {len(today_lines) + 1}"
+              f"|{datetime.now(timezone.utc).isoformat()}"
+          )
+
+          lines.append(entry)
+          path.write_text("\n".join(lines) + "\n")
+          PY
+
+      - name: Commit and push
+        run: |
+          git add daily-log.txt
+          git diff --cached --quiet || \
+            (git commit -m "Update daily coding log" && git push)
